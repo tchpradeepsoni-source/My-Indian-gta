@@ -1,0 +1,305 @@
+ <!DOCTYPE html>
+<html>
+<head>
+<title>Bike Racing Pro</title>
+
+<style>
+body{
+  margin:0;
+  background:#000;
+  color:#fff;
+  text-align:center;
+  font-family:Arial;
+}
+
+/* SCREENS */
+#menu, #shop{
+  margin-top:50px;
+}
+
+#gameArea{
+  width:300px;
+  height:500px;
+  margin:auto;
+  position:relative;
+  overflow:hidden;
+  display:none;
+  background:#333;
+}
+
+/* PLAYER */
+.bike{
+  width:50px;
+  height:80px;
+  position:absolute;
+  bottom:20px;
+  left:130px;
+  background-size:cover;
+  background-position:center;
+}
+
+/* BIKE IMAGES */
+.bike1{background-image:url('bike1.png');}
+.bike2{background-image:url('bike2.png');}
+.bike3{background-image:url('bike3.png');}
+
+/* ENEMY */
+.enemy{
+  width:50px;
+  height:80px;
+  position:absolute;
+  top:-100px;
+  background:url('enemy.png') no-repeat center/cover;
+}
+
+/* ROAD */
+.line{
+  width:10px;
+  height:100px;
+  background:#fff;
+  position:absolute;
+  left:145px;
+}
+
+/* BUTTON */
+button{
+  padding:10px;
+  margin:5px;
+  font-size:14px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- MENU -->
+<div id="menu">
+  <h1>Bike Racing</h1>
+  <button onclick="startGame()">Start</button>
+  <button onclick="openShop()">Shop</button>
+</div>
+
+<!-- SHOP -->
+<div id="shop" style="display:none;">
+  <h2>Shop</h2>
+  <p>Coins: <span id="coins">0</span></p>
+
+<button onclick="selectBike(1)">Use Bike 1</button>
+  <button onclick="buyBike(2)">Buy Bike 2 (50)</button>
+  <button onclick="selectBike(2)">Use</button><br>
+
+  <button onclick="buyBike(3)">Buy Bike 3 (100)</button>
+  <button onclick="selectBike(3)">Use</button><br><br>
+
+  <button onclick="backMenu()">Back</button>
+</div>
+
+<h3 id="score">Score: 0</h3>
+
+<div id="gameArea">
+  <div id="player" class="bike"></div>
+</div>
+
+<script>
+/* ================= VARIABLES ================= */
+const player = document.getElementById("player");
+const gameArea = document.getElementById("gameArea");
+const scoreText = document.getElementById("score");
+const coinsText = document.getElementById("coins");
+
+let pos = 130;
+let score = 0;
+let running = false;
+
+let coins = parseInt(localStorage.getItem("coins")) || 0;
+let ownedBikes = JSON.parse(localStorage.getItem("ownedBikes")) || [1];
+let currentBike = localStorage.getItem("bike") || 1;
+
+coinsText.innerText = coins;
+
+/* APPLY SAVED BIKE */
+function applyBike(){
+  player.className = "bike bike" + currentBike;
+}
+applyBike();
+
+/* ================= CONTROLS ================= */
+document.addEventListener("keydown", e=>{
+  if(!running) return;
+
+  if(e.key==="ArrowLeft" && pos>0) pos -= 20;
+  if(e.key==="ArrowRight" && pos<250) pos += 20;
+
+  player.style.left = pos + "px";
+});
+
+gameArea.addEventListener("touchmove", e=>{
+  let rect = gameArea.getBoundingClientRect();
+  let x = e.touches[0].clientX - rect.left;
+
+  pos = x - 25;
+  if(pos < 0) pos = 0;
+  if(pos > 250) pos = 250;
+
+  player.style.left = pos + "px";
+});
+
+/* ================= GAME ================= */
+function startGame(){
+  document.getElementById("menu").style.display="none";
+  gameArea.style.display="block";
+
+  currentBike = localStorage.getItem("bike") || 1;
+  applyBike();
+
+  running = true;
+  createEnemy();
+  gameLoop();
+}
+
+function gameLoop(){
+  if(!running) return;
+
+  moveLines();
+  moveEnemy();
+  checkCollision();
+
+  requestAnimationFrame(gameLoop);
+}
+
+/* ================= SHOP ================= */
+function openShop(){
+  document.getElementById("menu").style.display="none";
+  document.getElementById("shop").style.display="block";
+}
+
+function backMenu(){
+  document.getElementById("shop").style.display="none";
+  document.getElementById("menu").style.display="block";
+}
+
+function buyBike(id){
+  if(ownedBikes.includes(id)){
+    alert("Already owned!");
+    return;
+  }
+
+  if(id==2 && coins>=50){
+    coins -= 50;
+    ownedBikes.push(2);
+  }
+  else if(id==3 && coins>=100){
+    coins -= 100;
+    ownedBikes.push(3);
+  }
+  else{
+    alert("Not enough coins!");
+    return;
+  }
+
+  saveData();
+  alert("Bike Bought!");
+}
+
+function selectBike(id){
+  if(!ownedBikes.includes(id)){
+    alert("Buy first!");
+    return;
+  }
+
+  currentBike = id;
+  saveData();
+  applyBike();
+
+  alert("Bike Selected!");
+}
+
+/* ================= SAVE ================= */
+function saveData(){
+  localStorage.setItem("coins", coins);
+  localStorage.setItem("ownedBikes", JSON.stringify(ownedBikes));
+  localStorage.setItem("bike", currentBike);
+
+  coinsText.innerText = coins;
+}
+
+/* ================= ROAD ================= */
+for(let i=0;i<5;i++){
+  let line = document.createElement("div");
+  line.classList.add("line");
+  line.style.top = (i*100)+"px";
+  gameArea.appendChild(line);
+}
+
+function moveLines(){
+  document.querySelectorAll(".line").forEach(l=>{
+    let t = parseInt(l.style.top);
+    t += 6;
+
+    if(t > 500){
+      t = 0;
+      score++;
+      coins++;
+      scoreText.innerText = "Score: " + score;
+    }
+
+    l.style.top = t + "px";
+  });
+}
+
+/* ================= ENEMY ================= */
+let enemies = [];
+
+function createEnemy(){
+  let enemy = document.createElement("div");
+  enemy.classList.add("enemy");
+  enemy.style.left = Math.random()*250+"px";
+
+  gameArea.appendChild(enemy);
+  enemies.push(enemy);
+}
+
+function moveEnemy(){
+  enemies.forEach(e=>{
+    let t = parseInt(e.style.top || -100);
+    t += 7;
+
+    if(t > 500){
+      t = -100;
+      e.style.left = Math.random()*250+"px";
+    }
+
+    e.style.top = t + "px";
+  });
+}
+
+/* ================= COLLISION ================= */
+function checkCollision(){
+  let p = player.getBoundingClientRect();
+
+  enemies.forEach(e=>{
+    let r = e.getBoundingClientRect();
+
+    if(
+      p.left < r.right &&
+      p.right > r.left &&
+      p.top < r.bottom &&
+      p.bottom > r.top
+    ){
+      gameOver();
+    }
+  });
+}
+
+/* ================= GAME OVER ================= */
+function gameOver(){
+  running = false;
+  saveData();
+
+  alert("Game Over! Score: " + score + " Coins: " + coins);
+  location.reload();
+}
+</script>
+
+</body>
+</html>
